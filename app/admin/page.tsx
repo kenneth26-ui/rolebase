@@ -87,14 +87,23 @@ export default function AdminDashboard() {
     try {
       setUpdatingId(booking.id);
 
-      // 1. Update status in Firestore
+      // 1. Update booking status in Firestore
       const bookingDocRef = doc(db, "bookings", booking.id);
       await updateDoc(bookingDocRef, {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
 
-      // 2. Trigger notification for the user who made the reservation
+      // 2. If approved, update the car's availability to false so it vanishes from the user's fleet view
+      if (newStatus === "approved" && booking.carId) {
+        const carDocRef = doc(db, "cars", booking.carId);
+        await updateDoc(carDocRef, {
+          isAvailable: false,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      // 3. Trigger notification for the user who made the reservation
       await addDoc(collection(db, "notifications"), {
         userId: booking.userEmail,
         bookingId: booking.id,
@@ -105,7 +114,7 @@ export default function AdminDashboard() {
         createdAt: serverTimestamp(),
       });
 
-      // 3. Update local state instantly
+      // 4. Update local state instantly
       setBookings((prev) =>
         prev.map((b) => (b.id === booking.id ? { ...b, status: newStatus } : b))
       );

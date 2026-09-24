@@ -7,10 +7,10 @@ import { useSession } from "next-auth/react";
 import { db } from "@/config/firebase";
 import { 
   collection, 
-  getDocs, 
   addDoc, 
   query, 
   where, 
+  onSnapshot,
   serverTimestamp 
 } from "firebase/firestore";
 import { 
@@ -36,6 +36,18 @@ interface Car {
   isAvailable: boolean;
 }
 
+interface ConfirmedBooking {
+  id: string;
+  carName: string;
+  carCategory: string;
+  pickupLocation: string;
+  startDate: string;
+  endDate: string;
+  rentalDays: number;
+  includeDriver: boolean;
+  totalCost: number;
+}
+
 export default function UserBookPage() {
   const { data: session } = useSession();
   
@@ -51,31 +63,38 @@ export default function UserBookPage() {
   const [endDate, setEndDate] = useState("");
   const [includeDriver, setIncludeDriver] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Fetch cars from Firestore
-  useEffect(() => {
-    async function fetchFleet() {
-      try {
-        const carsRef = collection(db, "cars");
-        const q = query(carsRef, where("isAvailable", "==", true));
-        const querySnapshot = await getDocs(q);
+  // Confirmation Modal State
+  const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBooking | null>(null);
 
+  // Minimum selectable date string for inputs (YYYY-MM-DD)
+  const today = new Date().toISOString().split("T")[0];
+
+  // Fetch cars real-time from Firestore using onSnapshot
+  useEffect(() => {
+    const carsRef = collection(db, "cars");
+    const q = query(carsRef, where("isAvailable", "==", true));
+
+    // Listen for changes dynamically
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
         const fetchedCars: Car[] = [];
-        querySnapshot.forEach((doc) => {
+        snapshot.forEach((doc) => {
           fetchedCars.push({ id: doc.id, ...doc.data() } as Car);
         });
 
         setCars(fetchedCars);
-      } catch (err) {
-        console.error("Error fetching fleet:", err);
-      } finally {
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Error listening to fleet updates:", err);
         setLoading(false);
       }
-    }
+    );
 
-    fetchFleet();
+    return () => unsubscribe();
   }, []);
 
   // Calculate rental duration in days
@@ -97,7 +116,7 @@ export default function UserBookPage() {
   // Filter cars by category
   const filteredCars = selectedCategory === "All" 
     ? cars 
-    : cars.filter(car => car.category.toLowerCase() === selectedCategory.toLowerCase());
+    : cars.filter(car => car.category?.toLowerCase() === selectedCategory.toLowerCase());
 
   // Submit Booking Request
   const handleBookingSubmit = async (e: React.FormEvent) => {
@@ -109,16 +128,22 @@ export default function UserBookPage() {
       return;
     }
 
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      setErrorMessage("Return date cannot be earlier than start date.");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage("");
-    setSuccessMessage("");
 
     try {
-      // 1. Create Booking Document
+      const userIdentifier = session.user.email || "unknown_user";
+
+      // 1. Create Booking Document in Firestore
       const bookingRef = await addDoc(collection(db, "bookings"), {
-        userId: session.user.email || "unknown_user",
+        userId: userIdentifier,
         userName: session.user.name || "Executive Guest",
-        userEmail: session.user.email,
+        userEmail: session.user.email || userIdentifier,
         carId: selectedCar.id,
         carName: selectedCar.name,
         carCategory: selectedCar.category,
@@ -134,7 +159,7 @@ export default function UserBookPage() {
 
       // 2. Trigger Initial Confirmation Notification for User
       await addDoc(collection(db, "notifications"), {
-        userId: session.user.email,
+        userId: userIdentifier,
         bookingId: bookingRef.id,
         title: "Booking Request Received",
         message: `Your reservation request for ${selectedCar.name} (${rentalDays} days) has been submitted and is awaiting admin approval.`,
@@ -143,12 +168,25 @@ export default function UserBookPage() {
         createdAt: serverTimestamp(),
       });
 
-      setSuccessMessage("Reservation requested! Check your notifications for live updates.");
-      
-      setTimeout(() => {
-        setSelectedCar(null);
-        setSuccessMessage("");
-      }, 2500);
+      // 3. Set Confirmation Modal Data & Close Booking Form
+      setConfirmedBooking({
+        id: bookingRef.id,
+        carName: selectedCar.name,
+        carCategory: selectedCar.category,
+        pickupLocation,
+        startDate,
+        endDate,
+        rentalDays,
+        includeDriver,
+        totalCost,
+      });
+
+      // Reset form fields
+      setSelectedCar(null);
+      setStartDate("");
+      setEndDate("");
+      setPickupLocation("Victoria Island HQ (Lagos)");
+      setIncludeDriver(true);
 
     } catch (err) {
       console.error("Error placing booking:", err);
@@ -251,7 +289,7 @@ export default function UserBookPage() {
         </div>
       )}
 
-      {/* RESERVATION MODAL */}
+      {/* RESERVATION FORM MODAL */}
       {selectedCar && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 relative shadow-2xl space-y-5">
@@ -268,105 +306,195 @@ export default function UserBookPage() {
               <h2 className="text-xl font-bold text-white mt-0.5">{selectedCar.name}</h2>
             </div>
 
-            {successMessage ? (
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
-                <FaCheckCircle className="w-4 h-4 shrink-0" /> {successMessage}
-              </div>
-            ) : (
-              <form onSubmit={handleBookingSubmit} className="space-y-4 text-xs">
-                {errorMessage && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl">
-                    {errorMessage}
-                  </div>
-                )}
+            <form onSubmit={handleBookingSubmit} className="space-y-4 text-xs">
+              {errorMessage && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl">
+                  {errorMessage}
+                </div>
+              )}
 
+              <div>
+                <label className="block font-medium text-slate-300 mb-1 flex items-center gap-1.5">
+                  <FaMapMarkerAlt className="text-amber-500" /> Pickup Location
+                </label>
+                <select 
+                  value={pickupLocation}
+                  onChange={(e) => setPickupLocation(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option>Victoria Island HQ (Lagos)</option>
+                  <option>Ikeja Executive Hub</option>
+                  <option>Abuja Diplomatic Zone</option>
+                  <option>Port Harcourt Station</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-slate-300 mb-1 flex items-center gap-1.5">
-                    <FaMapMarkerAlt className="text-amber-500" /> Pickup Location
+                    <FaCalendarAlt className="text-amber-500" /> Start Date
                   </label>
-                  <select 
-                    value={pickupLocation}
-                    onChange={(e) => setPickupLocation(e.target.value)}
+                  <input 
+                    type="date"
+                    required
+                    min={today}
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
-                  >
-                    <option>Victoria Island HQ (Lagos)</option>
-                    <option>Ikeja Executive Hub</option>
-                    <option>Abuja Diplomatic Zone</option>
-                    <option>Port Harcourt Station</option>
-                  </select>
+                  />
                 </div>
+                <div>
+                  <label className="block font-medium text-slate-300 mb-1 flex items-center gap-1.5">
+                    <FaCalendarAlt className="text-amber-500" /> Return Date
+                  </label>
+                  <input 
+                    type="date"
+                    required
+                    min={startDate || today}
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between p-3.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-2">
+                  <FaUserTie className="text-amber-500 w-4 h-4" />
                   <div>
-                    <label className="block font-medium text-slate-300 mb-1 flex items-center gap-1.5">
-                      <FaCalendarAlt className="text-amber-500" /> Start Date
-                    </label>
-                    <input 
-                      type="date"
-                      required
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1 flex items-center gap-1.5">
-                      <FaCalendarAlt className="text-amber-500" /> Return Date
-                    </label>
-                    <input 
-                      type="date"
-                      required
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
-                    />
+                    <p className="font-semibold text-white">Dedicated Chauffeur</p>
+                    <p className="text-[10px] text-slate-400">+$50 / day</p>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between p-3.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <FaUserTie className="text-amber-500 w-4 h-4" />
-                    <div>
-                      <p className="font-semibold text-white">Dedicated Chauffeur</p>
-                      <p className="text-[10px] text-slate-400">+$50 / day</p>
-                    </div>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setIncludeDriver(!includeDriver)}
-                    className={`px-3 py-1 font-semibold rounded-lg text-[11px] border transition-all ${
-                      includeDriver ? "bg-amber-500 text-slate-950 border-amber-500" : "bg-slate-900 text-slate-400 border-slate-800"
-                    }`}
-                  >
-                    {includeDriver ? "Included" : "Add"}
-                  </button>
-                </div>
-
-                {/* Breakdown Summary */}
-                <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Rate (${selectedCar.pricePerDay} x {rentalDays} days):</span>
-                    <span className="font-mono text-slate-200">${baseCost}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Chauffeur Service:</span>
-                    <span className="font-mono text-slate-200">${driverCost}</span>
-                  </div>
-                  <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-white text-sm">
-                    <span>Total Estimated Cost:</span>
-                    <span className="text-amber-500 font-mono text-base">${totalCost}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
+                <button 
+                  type="button"
+                  onClick={() => setIncludeDriver(!includeDriver)}
+                  className={`px-3 py-1 font-semibold rounded-lg text-[11px] border transition-all ${
+                    includeDriver ? "bg-amber-500 text-slate-950 border-amber-500" : "bg-slate-900 text-slate-400 border-slate-800"
+                  }`}
                 >
-                  {submitting ? "Submitting Request..." : "Confirm Booking Request"}
+                  {includeDriver ? "Included" : "Add"}
                 </button>
-              </form>
-            )}
+              </div>
+
+              {/* Breakdown Summary */}
+              <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex justify-between text-slate-400">
+                  <span>Rate (${selectedCar.pricePerDay} x {rentalDays} days):</span>
+                  <span className="font-mono text-slate-200">${baseCost}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Chauffeur Service:</span>
+                  <span className="font-mono text-slate-200">${driverCost}</span>
+                </div>
+                <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-white text-sm">
+                  <span>Total Estimated Cost:</span>
+                  <span className="text-amber-500 font-mono text-base">${totalCost}</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
+              >
+                {submitting ? "Submitting Request..." : "Confirm Booking Request"}
+              </button>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS CONFIRMATION MODAL */}
+      {confirmedBooking && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 relative shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+            
+            <button 
+              onClick={() => setConfirmedBooking(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <FaTimes className="w-4 h-4" />
+            </button>
+
+            {/* Header / Icon */}
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                <FaCheckCircle className="w-8 h-8" />
+              </div>
+              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block">
+                Reservation Submitted
+              </span>
+              <h2 className="text-2xl font-bold text-white">Booking Requested!</h2>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Your request has been saved and is currently awaiting admin approval.
+              </p>
+            </div>
+
+            {/* Booking Receipt Summary */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div>
+                  <p className="text-slate-400 text-[10px] uppercase font-semibold">Vehicle</p>
+                  <p className="text-white font-bold text-sm">{confirmedBooking.carName}</p>
+                </div>
+                <span className="text-[11px] font-semibold uppercase px-2.5 py-0.5 bg-slate-800 text-amber-400 rounded-md">
+                  {confirmedBooking.carCategory}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1 text-slate-300">
+                <div className="flex items-start gap-2">
+                  <FaMapMarkerAlt className="text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-slate-400 text-[10px]">Pickup Location</p>
+                    <p className="font-medium text-white">{confirmedBooking.pickupLocation}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <FaCalendarAlt className="text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-slate-400 text-[10px]">Duration</p>
+                    <p className="font-medium text-white">{confirmedBooking.rentalDays} Day(s)</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <FaCalendarAlt className="text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-slate-400 text-[10px]">Dates</p>
+                    <p className="font-medium text-white">{confirmedBooking.startDate} to {confirmedBooking.endDate}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <FaUserTie className="text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-slate-400 text-[10px]">Chauffeur Service</p>
+                    <p className="font-medium text-white">{confirmedBooking.includeDriver ? "Included" : "Not Included"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-800 pt-3 flex justify-between items-center">
+                <span className="text-slate-400 font-medium">Total Cost:</span>
+                <span className="text-amber-500 font-bold font-mono text-lg">${confirmedBooking.totalCost}</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-[11px] text-center">
+              💡 Check your notifications tab for live updates regarding your reservation status.
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setConfirmedBooking(null)}
+              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold uppercase tracking-wider rounded-xl transition-colors cursor-pointer text-xs"
+            >
+              Done
+            </button>
 
           </div>
         </div>
