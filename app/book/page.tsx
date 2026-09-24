@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { db } from "@/config/firebase";
@@ -13,16 +15,13 @@ import {
 } from "firebase/firestore";
 import { 
   FaCar, 
-  FaSearch, 
   FaCalendarAlt, 
   FaMapMarkerAlt, 
   FaGasPump, 
   FaTachometerAlt, 
-  FaStar, 
   FaCheckCircle, 
   FaTimes, 
-  FaUserTie,
-  FaShieldAlt
+  FaUserTie
 } from "react-icons/fa";
 
 interface Car {
@@ -129,7 +128,7 @@ export default function UserBookPage() {
         rentalDays,
         includeDriver,
         totalCost,
-        status: "pending", // pending admin approval
+        status: "pending",
         createdAt: serverTimestamp(),
       });
 

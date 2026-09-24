@@ -98,7 +98,7 @@ export default function PostCarPage() {
           </div>
         </div>
 
-        <div>
+        {/* <div>
           <label className="block font-medium text-slate-300 mb-1">Image URL</label>
           <input
             type="url"
@@ -108,7 +108,7 @@ export default function PostCarPage() {
             className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
             placeholder="https://..."
           />
-        </div>
+        </div> */}
 
         <div>
           <label className="block font-medium text-slate-300 mb-1">Description</label>
