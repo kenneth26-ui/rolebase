@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CARMASS | High-Energy Fleet & Vehicle Booking Platform",
+  title: "Nicon Luxury Cars | High-Energy Fleet & Vehicle Booking Platform",
   description: "Next-gen keyless vehicle booking and fleet dispatch platform built with Neo-Brutalist engineering.",
 };
 
