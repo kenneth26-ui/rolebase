@@ -1,5 +1,5 @@
 import React from "react";
-import { db } from "@/config/config";
+import { db } from "@/config/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
 

@@ -1,17 +1,24 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAWc7tdi1OeG4mzw0AHE2kDpW2DiB7bAaY",
+  authDomain: "carmass-c8b68.firebaseapp.com",
+  projectId: "carmass-c8b68",
+  storageBucket: "carmass-c8b68.firebasestorage.app",
+  messagingSenderId: "79555215990",
+  appId: "1:79555215990:web:5b9c40762170424f215557"
 };
 
-// Initialize Firebase (prevents duplicate app initialization during hot reloading)
+// Singleton check to prevent multiple app initializations during Next.js HMR
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Export Firestore database instance
-export const db = getFirestore(app);
+// Initialize Firestore with long-polling fallback for local development
+const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+});
+
+const storage = getStorage(app);
+
+export { db, storage };

@@ -28,6 +28,37 @@ export default function Footer() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // INDIVIDUAL COMPANY LINKS (Edit any individual href below)
+  const companyLinks = [
+    { label: "Book Fleet", href: "/book" },
+    { label: "How It Works", href: "/how-it-works" },
+    { label: "About Us", href: "/about" },
+    { label: "Contact", href: "/contact" },
+    // { label: "Corporate Accounts", href: "/corporate" },
+  ];
+
+  // INDIVIDUAL FLEET LINKS (Edit any individual href below)
+  const fleetLinks = [
+    { label: "Executive Sedans", href: "/fleet/executive" },
+    { label: "SUVs", href: "/fleet/suv" },
+    { label: "Luxury Sprinters", href: "/fleet/luxury-sprinters" },
+    // { label: "Supercars", href: "/fleet/supercars" },
+    // { label: "Chauffeur Service", href: "/fleet/chauffeur-service" },
+  ];
+
+  // INDIVIDUAL LEGAL LINKS
+  const legalLinks = [
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
+  ];
+
+  // INDIVIDUAL SOCIAL LINKS
+  const socialLinks = [
+    { label: "X (Twitter)", href: "https://twitter.com", icon: FaXTwitter },
+    { label: "LinkedIn", href: "https://linkedin.com", icon: FaLinkedinIn },
+    { label: "Instagram", href: "https://instagram.com", icon: FaInstagram },
+  ];
+
   return (
     <footer className="bg-slate-950 text-slate-400 border-t border-slate-800/80 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -80,19 +111,19 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* NAVIGATION */}
+          {/* COMPANY LINKS */}
           <div>
             <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
               Company
             </h3>
             <ul className="space-y-2.5 text-xs">
-              {["Explore Fleet", "How It Works", "About Us", "Contact", "Corporate Accounts"].map((item) => (
-                <li key={item}>
+              {companyLinks.map((item) => (
+                <li key={item.label}>
                   <Link
-                    href={`/${item.toLowerCase().replace(/ /g, "-")}`}
+                    href={item.href}
                     className="hover:text-amber-400 transition-colors"
                   >
-                    {item}
+                    {item.label}
                   </Link>
                 </li>
               ))}
@@ -105,13 +136,13 @@ export default function Footer() {
               Our Fleet
             </h3>
             <ul className="space-y-2.5 text-xs">
-              {["Executive Sedans", "Armored SUVs", "Luxury Sprinters", "Supercars", "Chauffeur Service"].map((item) => (
-                <li key={item}>
+              {fleetLinks.map((item) => (
+                <li key={item.label}>
                   <Link
-                    href={`/${item.toLowerCase().replace(/ /g, "-")}`}
+                    href={item.href}
                     className="hover:text-amber-400 transition-colors"
                   >
-                    {item}
+                    {item.label}
                   </Link>
                 </li>
               ))}
@@ -125,7 +156,7 @@ export default function Footer() {
             </h3>
             <p className="flex items-start gap-2.5 text-slate-400">
               <FaMapMarkerAlt className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <span>Victoria Island, Lagos, Nigeria</span>
+              <span>Area 11 Gariki, Abuja, Nigeria</span>
             </p>
             <p className="flex items-center gap-2.5 text-slate-400">
               <FaPhoneAlt className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -148,45 +179,37 @@ export default function Footer() {
           <p>© {new Date().getFullYear()} NICON Luxury Cars. All rights reserved.</p>
 
           <div className="flex items-center gap-6">
-            <Link href="/privacy" className="hover:text-slate-400 transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-slate-400 transition-colors">
-              Terms of Service
-            </Link>
+            {legalLinks.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="hover:text-slate-400 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
 
           <div className="flex items-center gap-2.5">
-            <a
-              href="https://twitter.com"
-              target="_blank"
-              rel="noreferrer"
-              className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
-              aria-label="X (Twitter)"
-            >
-              <FaXTwitter className="w-3.5 h-3.5" />
-            </a>
-            <a
-              href="https://linkedin.com"
-              target="_blank"
-              rel="noreferrer"
-              className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
-              aria-label="LinkedIn"
-            >
-              <FaLinkedinIn className="w-3.5 h-3.5" />
-            </a>
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noreferrer"
-              className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
-              aria-label="Instagram"
-            >
-              <FaInstagram className="w-3.5 h-3.5" />
-            </a>
+            {socialLinks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
+                  aria-label={item.label}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </a>
+              );
+            })}
+
             <button
               onClick={scrollToTop}
-              className="p-2 bg-slate-900 rounded-lg text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-all ml-2"
+              className="p-2 bg-slate-900 rounded-lg text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-all ml-2 cursor-pointer"
               aria-label="Back to top"
             >
               <FaArrowUp className="w-3.5 h-3.5" />

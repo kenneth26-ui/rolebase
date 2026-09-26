@@ -149,7 +149,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3">
             <Link 
               href="/dashboard" 
-              className="p-2 bg-slate-900 border border-slate-800 rounded-xl hover:border-amber-500 text-slate-400 hover:text-white transition-colors"
+              className="p-2 border border-slate-800 rounded-xl hover:border-amber-500 text-slate-400 hover:text-white transition-colors"
             >
               <FaArrowLeft className="w-3.5 h-3.5" />
             </Link>

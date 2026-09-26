@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { db } from "@/config/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc } from "firebase/firestore";
 
 interface PostedCarDetails {
   name: string;
@@ -35,7 +35,7 @@ export default function PostCarPage() {
         ...formData,
         pricePerDay: Number(formData.pricePerDay),
         isAvailable: true,
-        createdAt: serverTimestamp(),
+        createdAt: new Date(),
       });
 
       // Save summary details for the modal prior to clearing state

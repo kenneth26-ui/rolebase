@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SigninOptions from "@/components/SigninOptions";
+import UserChatWidget from "./components/UserChatWidget";
 
 
 const geistSans = Geist({
@@ -37,6 +38,7 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1 flex flex-col">
           {children}
+          <UserChatWidget />
         </main>
         <Footer />
         </SigninOptions>
